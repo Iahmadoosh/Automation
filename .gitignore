@@ -5,6 +5,8 @@ __pycache__/
 *.pyc
 
 # Sensitive personal data & secrets
-profile.json
+data/profile.json
 .env
 *.pdf
+assets/*.pdf
+auth.json
