@@ -1,12 +1,29 @@
-# Python environment & cache
-venv/
+# Virtual Environment
 .venv/
-__pycache__/
-*.pyc
+venv/
+ENV/
+.vscode/
 
-# Sensitive personal data & secrets
-data/profile.json
+# Sensitive Authentication & Session Data (NEVER COMMIT)
 .env
-*.pdf
+data/auth.json
+data/coop_auth.json
+.linkedin_profile/
+
+# Run artifacts (screenshots/HTML contain personal data)
+logs/
+data/coop_applied.json
+
+# Personal documents
 assets/*.pdf
-auth.json
+assets/*.docx
+
+# Personal Profile Data
+data/profile.json
+
+# Python Cache & System Files
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db

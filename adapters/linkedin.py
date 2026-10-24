@@ -14,20 +14,21 @@ class LinkedInAdapter:
             return True
         return False
 
-    def search_jobs(self, keywords: str, location: str):
-        # f_AL=true filters specifically for Easy Apply postings
+    def search_jobs(self, keywords: str, location: str, job_type_code: str = ""):
         params = {
             "keywords": keywords,
             "location": location,
-            "f_AL": "true"
+            "f_AL": "true"  # Easy Apply only
         }
+        if job_type_code:
+            params["f_JT"] = job_type_code  # 'F' for Full-time, 'P' for Part-time
+
         query_string = urllib.parse.urlencode(params)
         search_url = f"https://www.linkedin.com/jobs/search/?{query_string}"
         
         print(f"Navigating to: {search_url}")
         self.page.goto(search_url, wait_until="domcontentloaded")
         self.page.wait_for_timeout(3000)
-
     def select_first_job(self) -> bool:
         print("Waiting for job listings to load...")
         
@@ -114,3 +115,18 @@ class LinkedInAdapter:
             "company": company,
             "description": description
         }
+
+    def close_modal_if_open(self):
+        """Closes any open application modal to unblock the page."""
+        dismiss_btn = self.page.locator(
+            "button[aria-label='Dismiss'], button[data-control-name='overlay.close_padding']"
+        ).first
+        if dismiss_btn.is_visible():
+            dismiss_btn.click()
+            self.page.wait_for_timeout(1000)
+
+            # LinkedIn often pops a 'Discard changes?' confirmation dialog
+            discard_btn = self.page.locator("button[data-control-name='discard_application_confirm_btn']").first
+            if discard_btn.is_visible():
+                discard_btn.click()
+                self.page.wait_for_timeout(1000)

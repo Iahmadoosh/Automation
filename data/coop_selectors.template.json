@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to data/coop_selectors.json and keep only keys you need. Each value is a Playwright selector tried BEFORE the built-in fallbacks. Find them with `python coop.py inspect`. Unknown keys are rejected.",
+  "index_card": "a:has-text(\"IndEX Jobs\")",
+  "index_user_type": "select#UserType",
+  "index_username": "input#Username",
+  "index_login_button": "button:has-text(\"Login\")",
+  "filter_button": "button:has-text(\"Filter\")",
+  "hide_applied_checkbox": "input#HideApplied"
+}

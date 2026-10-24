@@ -6,5 +6,13 @@
   "linkedin": "https://linkedin.com/in/janedoe",
   "github": "https://github.com/janedoe",
   "portfolio": "https://janedoe.dev",
-  "work_authorized": true
+  "work_authorized": true,
+  "student_number": "300000000",
+  "program": "BSc Computer Science (CSI), co-op",
+  "year": "2nd year",
+  "coursework": ["CSI 2110 Data Structures and Algorithms", "CSI 2132 Databases I", "CSI 2101 Discrete Structures"],
+  "skills": ["Python", "Java", "SQL", "Git", "Playwright"],
+  "projects": [
+    {"name": "Job application assistant", "summary": "Python + Playwright automation with a local Qwen LLM for screening answers"}
+  ]
 }
