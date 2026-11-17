@@ -1,12 +1,29 @@
 # Job Application Assistant
 
-An automated application assistant built with Python and Playwright. This tool streamlines the job application process by pre-filling standard ATS forms (such as Greenhouse and Lever) using structured profile data.
+[![CI](https://github.com/iahmadoosh/automation/actions/workflows/ci.yml/badge.svg)](https://github.com/iahmadoosh/automation/actions/workflows/ci.yml)
+
+A job application assistant built with Python, Playwright, and a local Qwen model (via LM Studio).
+It has two independent tools that share one LLM client:
+
+- **uOttawa co-op assistant (`coop.py`)**: the main tool. It signs in to the Experiential
+  Learning portal and IndEX, filters co-op listings, and fills application forms for you,
+  Ottawa listings first.
+- **LinkedIn job screener (`main.py`)**: an earlier prototype. It searches LinkedIn Easy Apply
+  listings, has Qwen score each one against your resume, and opens Easy Apply on matches. It
+  does not fill in or submit applications.
 
 ## Features
-- **Form Automation**: Automatically fills common application fields (contact info, links, authorization).
-- **Resume Upload**: Handles file attachments directly from local storage.
-- **Review Mode**: Pre-fills application forms and pauses for manual review before final submission.
-- **uOttawa co-op (IndEX)**: Filters Winter 2027 Computer Science listings, applies Ottawa first, and has a local Qwen model answer screening questions from your resume.
+- **IndEX filtering**: Applies the term, faculty, program, and "hide applied" filters (Winter 2027
+  Computer Science by default; set in `.env`), then groups listings into Ottawa and everywhere else.
+- **Form filling**: Fills contact and profile fields from `data/profile.json`, picks or uploads your
+  resume and transcript, and leaves anything uncertain (GPA, dropdowns, attestations) for you.
+- **Screening answers**: Your local Qwen model writes free-text answers within each question's
+  word or character limit and picks multiple-choice answers, grounded in your resume. It answers
+  UNSURE rather than guessing.
+- **Safe by default**: Preview mode never clicks Apply, the default dry run stops before Submit,
+  and live mode asks you to confirm every application.
+- **LinkedIn screening**: Turns your target role into search queries and rates each listing as a
+  match or reject, with a reason.
 
 ## Tech Stack
 - **Language**: Python 3.12+
@@ -17,7 +34,7 @@ An automated application assistant built with Python and Playwright. This tool s
 ## Architecture
 
 ```
-main.py                 LinkedIn entry point (unchanged)
+main.py                 LinkedIn entry point (prototype)
 coop.py                 uOttawa co-op entry point: login | inspect | run
 adapters/
   linkedin.py           LinkedIn page actions
@@ -118,3 +135,6 @@ python -m ruff format --check core adapters/browser_utils.py adapters/coop_*.py 
 popup -> login -> filters -> cards -> intermediary page -> form). It checks Ottawa-first ordering,
 that dry runs never POST, that live runs submit only after confirmation, and that a bad password
 is tried exactly once.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same lint, format, and test commands on every
+push and pull request, with Chromium installed so the end-to-end flow tests run too.
