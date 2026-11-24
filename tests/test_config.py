@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from adapters.coop_selectors import CoopSelectors, load_selectors
-from core.config import load_coop_settings
+from core.config import load_coop_settings, load_cv_settings
 from core.errors import ConfigError
 
 ENV_VARS = (
@@ -17,6 +17,10 @@ ENV_VARS = (
     "COOP_PROGRAM",
     "COOP_MIN_DELAY",
     "COOP_MAX_DELAY",
+    "CV_PROVIDER",
+    "GEMINI_API_KEY",
+    "LLM_MODEL",
+    "LLM_WRITING_MODEL",
 )
 
 
@@ -82,3 +86,13 @@ def test_unknown_selector_key_rejected(tmp_path):
     path.write_text('{"index_crad": "a"}')
     with pytest.raises(ConfigError, match="index_crad"):
         load_selectors(path)
+
+
+def test_cv_settings_defaults_and_validation(tmp_path):
+    settings = load_cv_settings(write_env(tmp_path, "LLM_MODEL=qwen3-8b\n"))
+    assert settings.provider == "local" and settings.writing_model == "qwen3-8b"
+    assert settings.master_path.name == "master_resume.yaml"
+    with pytest.raises(ConfigError, match="GEMINI_API_KEY"):
+        load_cv_settings(write_env(tmp_path, "CV_PROVIDER=gemini\n"))
+    with pytest.raises(ConfigError, match="CV_PROVIDER"):
+        load_cv_settings(write_env(tmp_path, "CV_PROVIDER=openai\n"))

@@ -50,7 +50,7 @@ def test_needs_you_and_deadlines(tmp_path):
 
 def test_messages_include_counts_and_one_message_per_draft(tmp_path):
     coop = tmp_path / "coop"
-    write(coop / "run-live-20261124-090000.json", [entry("A", "submitted")])
+    write(coop / "run-live-20261124-090000.json", [entry("A", "submitted", cv_path="output/cvs/a/cv.pdf")])
     drafts = [
         {
             "name": "Sam Lee",
@@ -75,6 +75,7 @@ def test_messages_include_counts_and_one_message_per_draft(tmp_path):
     assert "Connections found: 2" in messages[0]
     assert "Messages drafted: 2" in messages[0]
     assert "- A @ Acme" in messages[0]
+    assert "Tailored CVs made: 1" in messages[0]
     assert messages[1].startswith("Draft 1/2: Sam Lee")
     assert messages[1].endswith("Hi Sam!")
     assert "Ciena (SWE Intern)" in messages[2]

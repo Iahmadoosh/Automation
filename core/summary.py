@@ -33,6 +33,7 @@ class Draft:
 class DailySummary:
     day: date
     runs: int = 0
+    cvs_made: int = 0
     statuses: Counter = field(default_factory=Counter)
     submitted: list[str] = field(default_factory=list)
     needs_you: list[str] = field(default_factory=list)
@@ -88,6 +89,8 @@ def build_summary(coop_log_dir: Path, outreach_dir: Path, day: date, deadline_da
             for entry in json.loads(path.read_text(encoding="utf-8")):
                 status = str(entry.get("status", "unknown"))
                 summary.statuses[status] += 1
+                if entry.get("cv_path"):
+                    summary.cvs_made += 1
                 job = _job(entry)
                 if status == "submitted":
                     summary.submitted.append(job)
@@ -141,6 +144,8 @@ def format_messages(summary: DailySummary) -> list[str]:
     lines.append(f"Applied: {summary.statuses['submitted']}")
     lines.append(f"Connections found: {len(summary.drafts)}")
     lines.append(f"Messages drafted: {len(summary.drafts)}")
+    if summary.cvs_made:
+        lines.append(f"Tailored CVs made: {summary.cvs_made}")
     if summary.runs:
         lines.append(f"Co-op runs: {summary.runs}")
         lines.extend(

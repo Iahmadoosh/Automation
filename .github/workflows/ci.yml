@@ -36,7 +36,8 @@ jobs:
       - name: Check formatting
         run: >-
           python -m ruff format --check core adapters/browser_utils.py adapters/coop_*.py
-          adapters/uottawa_*.py engine/resume.py engine/screening.py coop.py tests
+          adapters/uottawa_*.py adapters/cv_pdf.py engine/resume.py engine/screening.py engine/cv.py
+          engine/llm.py coop.py cv.py tests
 
       - name: Run tests
         run: python -m pytest -rs

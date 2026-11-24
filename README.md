@@ -22,13 +22,16 @@ It has two independent tools that share one LLM client:
   UNSURE rather than guessing.
 - **Safe by default**: Preview mode never clicks Apply, the default dry run stops before Submit,
   and live mode asks you to confirm every application.
+- **Tailored CVs**: Builds a one-page PDF CV for each job from your master resume, using your local
+  model or Gemini. It can only select, reorder and reword what you wrote, and it checks every line.
+- **Daily summary on your phone**: Sends the day's results to a Telegram bot.
 - **LinkedIn screening**: Turns your target role into search queries and rates each listing as a
   match or reject, with a reason.
 
 ## Tech Stack
 - **Language**: Python 3.12+
 - **Automation**: Playwright
-- **LLM**: Local Qwen via LM Studio's REST API
+- **LLM**: Local Qwen via LM Studio's REST API, optional Google Gemini API for CVs
 - **Environment**: Virtual Environment (`venv`), Git/GitHub
 
 ## Architecture
@@ -36,6 +39,7 @@ It has two independent tools that share one LLM client:
 ```
 main.py                 LinkedIn entry point (prototype)
 coop.py                 uOttawa co-op entry point: login | inspect | run | summary | notify-test
+cv.py                   Tailored CV generator: check | test-ai | make
 adapters/
   linkedin.py           LinkedIn page actions
   uottawa_index.py      IndexNavigator: SSO -> dashboard -> IndEX Jobs card -> IndEX login,
@@ -45,10 +49,13 @@ adapters/
   browser_utils.py      first_visible / click_and_follow (popup, tab or same page) / backoff goto
   coop_parsing.py       Pure rules: cards, location grouping, filter option matching, field plans
   coop_selectors.py     Optional selector overrides (tried before built-in fallbacks)
+  cv_pdf.py             CV HTML -> PDF with headless Chromium
 engine/
   evaluator.py          Shared Qwen client (JobEvaluator.query) + LinkedIn match scoring
   resume.py             resume.pdf/.txt -> cached text split into education/skills/projects/experience
   screening.py          Qwen prompts for free-text answers and multiple-choice (radio) questions
+  llm.py                LM Studio and Gemini clients behind one query() interface
+  cv.py                 Master resume -> tailored CV (selection, rewording, fact checks, layout)
 core/
   config.py             .env -> frozen settings
   throttle.py           Jittered pauses, per-application rate limit, exponential backoff
@@ -69,6 +76,7 @@ pip install -r requirements-dev.txt
 playwright install chromium
 copy .env.example .env                       # then edit it
 copy data\profile.template.json data\profile.json   # then edit it
+copy data\master_resume.template.yaml data\master_resume.yaml   # then fill in (for CVs)
 ```
 
 Put your resume at `assets/resume.pdf` (`data/` and the project root also work, as do `.txt`
@@ -105,6 +113,7 @@ python coop.py run                   # dry run (default): fill forms, stop befor
 python coop.py run --live            # submit; asks "Submit this application? [y/N]" each time
 python coop.py run --expand no       # don't ask about non-Ottawa listings (or --expand yes)
 python coop.py run --max 20          # raise the per-run cap (default 5)
+python coop.py run --cvs             # also make a tailored CV for each posting (see below)
 python coop.py inspect               # snapshot any pages to calibrate selectors
 ```
 
@@ -126,6 +135,54 @@ set only the key you need (see `data/coop_selectors.template.json`).
 Random 0.8–2.5 s pauses between actions, at least 90 s (+ jitter) between applications, at most 5
 applications per run, and exponential backoff on navigation timeouts and 5xx responses. All of
 these are set in `.env`.
+
+## Tailored CVs
+
+`cv.py` makes a one-page PDF CV for a specific job from `data/master_resume.yaml`, your master
+resume with everything you could ever list. For each job it picks the most relevant experience,
+projects and skills, puts them in the best order, rewords bullets toward the job, and writes a
+short summary.
+
+**It never makes things up.** Names, employers, titles, dates and links always come from your
+master resume. Every reworded line is checked, and is replaced by your original wording (with a
+warning) if it:
+- contains a number that isn't in that item in your master resume (no invented metrics);
+- names a tool or technology from the job posting that isn't anywhere in your resume;
+- lists a skill you didn't list.
+
+If the AI isn't running or gives an unusable answer, the CV is still made by keyword matching,
+using your exact wording.
+
+### Setup
+1. `copy data\master_resume.template.yaml data\master_resume.yaml` and fill it in. Put in more than
+   fits on one page; the generator chooses. It's git-ignored.
+2. Check it, which also renders an untailored CV so you can see the layout:
+   ```powershell
+   python cv.py check
+   ```
+3. Choose who writes the CVs in `.env`:
+   - `CV_PROVIDER=local`: your LM Studio model (`LLM_WRITING_MODEL`, or `LLM_MODEL` if empty).
+     Bigger models write better; on an 8 GB GPU with 64 GB RAM, `qwen3-30b-a3b` is a good choice.
+   - `CV_PROVIDER=gemini`: needs `GEMINI_API_KEY`, free from aistudio.google.com (a Gemini app
+     subscription doesn't include API access). On the free tier Google may use prompts to improve
+     its products.
+   - `CV_PROVIDER=none`: keyword matching only, no AI.
+4. Check the AI answers: `python cv.py test-ai` (or `python cv.py test-ai --provider gemini`).
+
+### Commands
+```powershell
+python cv.py make --title "Software Developer Intern" --company "Acme" --job job.txt
+python cv.py make --title "..." --company "..."        # paste the description, then type END
+python cv.py make ... --provider gemini                # override CV_PROVIDER for one CV
+python cv.py make ... --force                          # redo today's CV for this job
+python coop.py run --cvs                               # one CV per IndEX posting the run opens
+```
+
+Each CV goes in `output/cvs/<date>-<company>-<title>/`: `cv.pdf`, `cv.html`, `cv.txt` (plain text
+for pasting into forms), `job.txt` and `report.json` (which model wrote it, and any warnings). If it
+runs over one page, the least relevant lines are removed until it fits. **Read every CV before you
+send it.** IndEX attaches documents you've uploaded to the portal, so upload the tailored PDF there
+when you want to use it. The daily summary counts how many CVs were made.
 
 ## Daily summary on your phone (Telegram)
 
@@ -172,7 +229,7 @@ until then the summary reports 0 connections.
 ```powershell
 python -m pytest
 python -m ruff check .
-python -m ruff format --check core adapters/browser_utils.py adapters/coop_*.py adapters/uottawa_*.py engine/resume.py engine/screening.py coop.py tests
+python -m ruff format --check core adapters/browser_utils.py adapters/coop_*.py adapters/uottawa_*.py adapters/cv_pdf.py engine/resume.py engine/screening.py engine/cv.py engine/llm.py coop.py cv.py tests
 ```
 `tests/test_coop_flow.py` drives the real applier through a fake two-tier portal (dashboard -> IndEX
 popup -> login -> filters -> cards -> intermediary page -> form). It checks Ottawa-first ordering,

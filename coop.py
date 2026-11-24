@@ -18,13 +18,14 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 
 from adapters.coop_selectors import load_selectors
+from adapters.cv_pdf import make_pdf_renderer
 from adapters.uottawa_coop import (
     ENUMERATE_FIELDS_JS,
     EXTRACT_POSTING_JS,
     ApplicationResult,
     UOttawaCoopApplier,
 )
-from core.config import CoopSettings, load_coop_settings, load_profile
+from core.config import CoopSettings, load_coop_settings, load_cv_settings, load_profile
 from core.errors import (
     ConfigError,
     IndexLoginError,
@@ -34,6 +35,8 @@ from core.errors import (
 )
 from core.notify import load_notifier
 from core.summary import build_summary, format_messages
+from cv import make_llm
+from engine.cv import CvMaker, load_master
 from engine.evaluator import JobEvaluator
 from engine.resume import load_resume
 from engine.screening import ScreeningAnswerer
@@ -58,6 +61,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         choices=("ask", "yes", "no"),
         default="ask",
         help="After Ottawa: ask (default), or always/never continue with listings elsewhere",
+    )
+    run.add_argument(
+        "--cvs",
+        action="store_true",
+        help="Make a tailored CV (output/cvs/) for each posting opened, using CV_PROVIDER",
     )
     run.add_argument(
         "--yes",
@@ -162,6 +170,10 @@ def main(argv: list[str] | None = None) -> int:
             return _notify_test()
         selectors = load_selectors(settings.selectors_path)
         profile = load_profile(settings.profile_path)
+        cv_parts = None
+        if getattr(args, "cvs", False):
+            cv_settings = load_cv_settings()
+            cv_parts = (cv_settings, load_master(cv_settings.master_path), make_llm(cv_settings))
     except ConfigError as exc:
         print(f"Configuration error: {exc}")
         return 2
@@ -193,8 +205,16 @@ def main(argv: list[str] | None = None) -> int:
         state = str(settings.auth_path) if settings.auth_path.exists() else None
         context = browser.new_context(storage_state=state, viewport={"width": 1366, "height": 900})
         page = context.new_page()
+        cv_maker = None
+        if cv_parts:
+            cv_settings, master, cv_llm = cv_parts
+            pdf_browser = p.chromium.launch(headless=True)  # PDF printing needs headless Chromium
+            cv_maker = CvMaker(
+                master, cv_llm, cv_settings.out_dir, make_pdf_renderer(pdf_browser), cv_settings.max_projects
+            )
+            print(f"Tailored CVs on, written by {cv_llm.name if cv_llm else 'keyword matching'}.")
         bot = UOttawaCoopApplier(
-            context, page, settings, selectors, profile, answerer, interactive=not headless
+            context, page, settings, selectors, profile, answerer, interactive=not headless, cv_maker=cv_maker
         )
         try:
             if args.command == "login":

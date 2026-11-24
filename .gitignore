@@ -20,6 +20,10 @@ assets/*.docx
 
 # Personal Profile Data
 data/profile.json
+data/master_resume.yaml
+
+# Generated CVs (personal data)
+output/
 
 # Python Cache & System Files
 __pycache__/
