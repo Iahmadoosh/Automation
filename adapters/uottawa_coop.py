@@ -5,7 +5,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urljoin
@@ -32,6 +32,7 @@ from adapters.uottawa_index import IndexNavigator
 from core.config import CoopSettings
 from core.errors import IndexLoginError, LayoutChangedError, SessionExpiredError
 from core.throttle import RateLimiter, Throttle
+from engine.cv import CvMaker, JobPosting
 from engine.screening import JobContext, ScreeningAnswerer, ScreeningQuestion
 
 MAX_FORM_STEPS = 8
@@ -163,6 +164,7 @@ class ApplicationResult:
     answers: dict[str, str] = field(default_factory=dict)
     manual: list[ManualItem] = field(default_factory=list)
     screenshot: str = ""
+    cv_path: str = ""
 
     @classmethod
     def for_card(cls, group: str, card: JobCard, status: ApplicationStatus, **kwargs) -> "ApplicationResult":
@@ -210,6 +212,7 @@ class UOttawaCoopApplier:
         answerer: ScreeningAnswerer,
         confirm: Callable[[str], bool] | None = None,
         interactive: bool = True,
+        cv_maker: CvMaker | None = None,
     ) -> None:
         self.context = context
         self.page = page
@@ -218,6 +221,7 @@ class UOttawaCoopApplier:
         self.profile = profile
         self.answerer = answerer
         self.confirm = confirm or _ask_yes_no
+        self.cv_maker = cv_maker
         self.throttle = Throttle(settings.min_delay, settings.max_delay)
         self.rate_limiter = RateLimiter(settings.seconds_between_applications)
         self.documents = DocumentPrefs(
@@ -508,6 +512,21 @@ class UOttawaCoopApplier:
             result.reason = f"PDF posting at {url} (download failed: {str(exc).splitlines()[0]})"
         return result
 
+    def _make_cv(self, posting: Posting, result: ApplicationResult) -> None:
+        """Tailored CV for this posting (coop.py run --cvs). A failure never stops the run."""
+        if self.cv_maker is None:
+            return
+        try:
+            out = self.cv_maker.make(
+                JobPosting(posting.title, posting.company, posting.description), date.today()
+            )
+        except (OSError, PlaywrightError, ValueError) as exc:
+            print(f"  CV not made: {str(exc).splitlines()[0]}")
+            return
+        result.cv_path = str(out.pdf or out.folder)
+        note = f" ({len(out.warnings)} warning(s) in report.json)" if out.warnings else ""
+        print(f"  Tailored CV: {result.cv_path}{note}")
+
     def _process_card(
         self, group: str, card: JobCard, state: _RunState, *, dry_run: bool, auto_confirm: bool, preview: bool
     ) -> ApplicationResult:
@@ -521,6 +540,7 @@ class UOttawaCoopApplier:
             work = self._open_card(card)
             posting = self.read_posting(work, card)
             result.job_id, result.deadline = posting.job_id, posting.deadline
+            self._make_cv(posting, result)
             if preview:
                 result.status = ApplicationStatus.PREVIEW
                 result.screenshot = self._screenshot(work, posting, "posting")

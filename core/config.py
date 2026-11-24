@@ -165,3 +165,38 @@ def load_profile(path: Path) -> dict:
         raise ConfigError(f"{path} not found. Copy data/profile.template.json to data/profile.json.")
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+@dataclass(frozen=True)
+class CvSettings:
+    master_path: Path
+    out_dir: Path
+    provider: str  # "local", "gemini" or "none"
+    llm_endpoint: str
+    writing_model: str
+    gemini_api_key: str = field(repr=False)
+    gemini_model: str
+    max_projects: int
+
+
+CV_PROVIDERS = ("local", "gemini", "none")
+
+
+def load_cv_settings(env_file: Path | None = None) -> CvSettings:
+    load_dotenv(env_file or BASE_DIR / ".env")
+    provider = (_env_str("CV_PROVIDER") or "local").lower()
+    if provider not in CV_PROVIDERS:
+        raise ConfigError(f"CV_PROVIDER must be one of {', '.join(CV_PROVIDERS)}, got {provider!r}.")
+    api_key = _env_str("GEMINI_API_KEY")
+    if provider == "gemini" and not api_key:
+        raise ConfigError("CV_PROVIDER=gemini needs GEMINI_API_KEY (free key at aistudio.google.com).")
+    return CvSettings(
+        master_path=_env_path("MASTER_RESUME_PATH", BASE_DIR / "data" / "master_resume.yaml"),
+        out_dir=_env_path("CV_OUTPUT_DIR", BASE_DIR / "output" / "cvs"),
+        provider=provider,
+        llm_endpoint=_env_str("LLM_ENDPOINT", "http://localhost:1234/api/v1/chat"),
+        writing_model=_env_str("LLM_WRITING_MODEL") or _env_str("LLM_MODEL", "qwen2.5-coder-7b-instruct"),
+        gemini_api_key=api_key,
+        gemini_model=_env_str("GEMINI_MODEL", "gemini-2.5-flash"),
+        max_projects=int(_env_number("CV_MAX_PROJECTS", 3, int)),
+    )

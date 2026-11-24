@@ -1,0 +1,81 @@
+# MASTER RESUME - everything you could ever put on a CV.
+# Copy this file to data/master_resume.yaml and replace the example content with yours.
+# (data/master_resume.yaml is git-ignored, so it never goes to GitHub.)
+#
+# Put in MORE than fits on one page: every project, every job, every good bullet.
+# For each job the generator picks the most relevant items and rewords them, but it can
+# never add anything that isn't written here. Numbers (e.g. "30%", "500 users") are kept
+# exactly as you wrote them, so only include numbers that are true.
+#
+# Formatting rules (YAML):
+#   - indent with spaces, never tabs
+#   - lines starting with "- " are list items
+#   - put text containing a colon ":" inside quotes, e.g. "GPA: 3.8/4.0"
+#   - check your file any time with:  python cv.py check
+
+name: Jane Doe
+
+contact:
+  email: jdoe123@uottawa.ca
+  phone: 613-555-0123
+  location: Ottawa, ON
+  linkedin: https://linkedin.com/in/janedoe
+  github: https://github.com/janedoe
+  # portfolio: https://janedoe.dev
+
+# Optional default summary (used when tailoring is off). The AI writes a tailored one per job.
+summary: Second-year Computer Science co-op student who builds practical tools in Python and Java.
+
+education:
+  - school: University of Ottawa
+    degree: BSc Computer Science, Co-op
+    location: Ottawa, ON
+    start: Sep 2024
+    end: Apr 2028 (expected)
+    details:
+      - "Relevant coursework: Data Structures and Algorithms, Databases I, Discrete Structures"
+      # - "GPA: 8.5/10"
+      # - "Dean's Honour List, Fall 2024"
+
+# Group skills however you like; the group names become the lines on the CV.
+skills:
+  Languages: [Python, Java, SQL, JavaScript]
+  Frameworks & Tools: [Playwright, Git, Linux, pytest]
+
+# Most recent first. Each entry: title, company, location, start, end, bullets.
+# The optional id is a short unique name; one is made from the title if you leave it out.
+experience:
+  - id: retail
+    title: Sales Associate
+    company: Example Store
+    location: Ottawa, ON
+    start: May 2024
+    end: Aug 2024
+    bullets:
+      - Served 50+ customers per shift, resolving questions about products and returns
+      - Trained 3 new hires on the point-of-sale system and store procedures
+      - Handled cash and card transactions accurately during peak hours
+
+projects:
+  - id: jobbot
+    name: Job Application Assistant
+    tech: [Python, Playwright, LM Studio]
+    link: https://github.com/janedoe/automation
+    start: 2025
+    bullets:
+      - Built a browser automation tool that fills co-op applications and pauses for review before submitting
+      - Integrated a locally hosted LLM to draft screening-question answers grounded in the user's resume
+      - Wrote 60+ unit and end-to-end tests and set up GitHub Actions CI
+
+  - id: another-project
+    name: Course Scheduler
+    tech: [Java, SQL]
+    bullets:
+      - Designed a relational schema and queries to generate conflict-free course timetables
+
+# Optional extra sections, shown at the bottom of every CV.
+# extras:
+#   Volunteering:
+#     - Tutor, uOttawa CS Club (2025 - present)
+#   Languages:
+#     - English (fluent), French (intermediate)

@@ -16,3 +16,7 @@ class IndexLoginError(AutomationError):
 
 class LayoutChangedError(AutomationError):
     """The portal's page structure no longer matches the configured selectors."""
+
+
+class NotifyError(AutomationError):
+    """A phone notification could not be sent (bad token/chat id, or no network)."""

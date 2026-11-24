@@ -196,3 +196,21 @@ def test_bad_password_fails_once_without_retry(portal):
     with pytest.raises(IndexLoginError):
         bot.run(dry_run=True, max_applications=1, expand="no")
     assert len(fake.logins) == 1
+
+
+def test_run_with_cvs_makes_one_tailored_cv_per_opened_posting(portal, tmp_path):
+    from engine.cv import CvMaker, parse_master
+
+    def fake_pdf(html, path):
+        path.write_bytes(b"%PDF")
+        return 1
+
+    bot, _ = portal
+    master = parse_master({"name": "Jane", "projects": [{"name": "Bot", "bullets": ["Built a bot"]}]})
+    bot.cv_maker = CvMaker(master, None, tmp_path / "cvs", fake_pdf)
+    results = {r.title: r for r in bot.run(dry_run=True, max_applications=10, expand="no")}
+
+    assert results["Software Developer Intern"].cv_path.endswith("cv.pdf")
+    assert results["QA Intern"].cv_path  # made even though the posting has no form
+    assert results["Policy Intern"].cv_path == ""  # PDF postings aren't opened
+    assert len(list((tmp_path / "cvs").iterdir())) == 2
