@@ -35,7 +35,7 @@ It has two independent tools that share one LLM client:
 
 ```
 main.py                 LinkedIn entry point (prototype)
-coop.py                 uOttawa co-op entry point: login | inspect | run
+coop.py                 uOttawa co-op entry point: login | inspect | run | summary | notify-test
 adapters/
   linkedin.py           LinkedIn page actions
   uottawa_index.py      IndexNavigator: SSO -> dashboard -> IndEX Jobs card -> IndEX login,
@@ -52,7 +52,9 @@ engine/
 core/
   config.py             .env -> frozen settings
   throttle.py           Jittered pauses, per-application rate limit, exponential backoff
-  errors.py             ConfigError / SessionExpiredError / IndexLoginError / LayoutChangedError
+  notify.py             Telegram bot messages to your phone
+  summary.py            Daily summary built from the run logs
+  errors.py             ConfigError / SessionExpiredError / IndexLoginError / LayoutChangedError / NotifyError
 ```
 
 Each platform owns its adapter and entry point and they share the `engine/` Qwen client.
@@ -124,6 +126,47 @@ set only the key you need (see `data/coop_selectors.template.json`).
 Random 0.8–2.5 s pauses between actions, at least 90 s (+ jitter) between applications, at most 5
 applications per run, and exponential backoff on navigation timeouts and 5xx responses. All of
 these are set in `.env`.
+
+## Daily summary on your phone (Telegram)
+
+`python coop.py summary` collects the day's run logs and sends a summary to your phone through a
+Telegram bot: how many applications were submitted, what needs you (fields left for you, PDF
+postings), deadlines in the next 3 days, errors, and how many referral contacts were found. Each
+drafted referral message arrives as its own Telegram message, ready to copy into LinkedIn.
+
+### Setup
+1. In Telegram, message **@BotFather**, send `/newbot`, and follow the prompts. It gives you a token.
+2. Open your bot's chat (`t.me/<your_bot_username>`), tap **Start**, and send it any message.
+3. Get your chat ID from PowerShell (paste as one line, replacing `<TOKEN>`):
+   ```powershell
+   $token = "<TOKEN>"; $u = Invoke-RestMethod "https://api.telegram.org/bot$token/getUpdates"; "TELEGRAM_CHAT_ID=" + $u.result[-1].message.chat.id
+   ```
+4. Add both values to `.env`, then check the setup:
+   ```powershell
+   python coop.py notify-test
+   ```
+
+### Commands
+```powershell
+python coop.py summary                    # send today's summary
+python coop.py summary --print            # show it in the terminal instead of sending
+python coop.py summary --date 2026-11-24  # summarise another day
+```
+
+### Send it automatically every evening
+Windows Task Scheduler (run once in PowerShell; adjust the project path and the time):
+```powershell
+$dir = "$HOME\Automation"
+$action = New-ScheduledTaskAction -Execute "$dir\.venv\Scripts\python.exe" -Argument "coop.py summary" -WorkingDirectory $dir
+$trigger = New-ScheduledTaskTrigger -Daily -At 9pm
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName "Job hunt summary" -Action $action -Trigger $trigger -Settings $settings
+```
+`-StartWhenAvailable` sends a missed summary as soon as the PC is back on.
+
+Referral drafts are read from `logs/outreach/drafts-YYYYMMDD.json` (a list of objects with `name`,
+`company`, `profile_url` and `message`). The outreach tool that writes them is still to come, so
+until then the summary reports 0 connections.
 
 ## Tests & lint
 ```powershell
